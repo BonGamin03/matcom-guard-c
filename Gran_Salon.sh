@@ -13,7 +13,7 @@ check_dependencies() {
         echo -e "${YELLOW}[!] Instalando nmap...${NC}"
         sudo apt install -y nmap
     fi
-    
+   
     if ! command -v enscript &> /dev/null; then
         echo -e "${YELLOW}[!] Instalando enscript...${NC}"
         sudo apt install -y enscript
@@ -38,25 +38,30 @@ scan_files() {
             mkdir -p "$HOME/Desktop/Matcom-Guard-C/Scanners"
             cp nombre_de_su_escaner.c "$HOME/Desktop/Matcom-Guard-C/Scanners/"
 
-            # Compilar el código C del escáner de puertos
-            gcc -o "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner" "$HOME/Desktop/Matcom-Guard-C/Scanners/port_scanner.c" -lpthread 2>/dev/null
+            # Compilar el código C del escáner de sistema de archivos
+            gcc -o "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner" "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner.c" -lpthread 2>/dev/null
             if [ $? -ne 0 ]; then
                 echo -e "${RED}[!] Error al compilar el escáner.${NC}"
                 return 1
             fi
         fi
 
-        # Ejecutar el escáner de puertos
+        # Ejecutar el escáner de sistema de archivos
         if [ -f "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner" ]; then
             # Pasar los argumentos al ejecutable
-            "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner" "$ip" "$start_port" "$end_port" > Report/reporte_puertos.txt
+            echo ""
+            echo -e "${YELLOW}------------------------------------------------------------------------${NC}"
+            "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner" | tee Report/reporte_sistema_archivos.txt
         else
-            echo "[!] El ejecutable nombre_de_su_escaner no se encontró en ~/Scanners." > Report/reporte_puertos.txt
+            echo "[!] El ejecutable nombre_de_su_escaner no se encontró en ~/Scanners." | tee Report/reporte_sistema_archivos.txt
         fi
 
-
+    echo -e "${YELLOW}------------------------------------------------------------------------${NC}"
+    echo ""
+    echo -e "${YELLOW}[+] Escaneo de sistema de archivos completado.${NC}"
     echo "🔍 Reporte guardado en: 📄Report/reporte_sistema_archivos.txt"
     # sudo find / -type f -perm /4000 2>/dev/null > Report/reporte_sistema_archivos.txt
+    echo ""
 }
 
 # Escaneo de procesos y hilos 
@@ -77,26 +82,30 @@ scan_process() {
             mkdir -p "$HOME/Desktop/Matcom-Guard-C/Scanners"
             cp nombre_de_su_escaner.c "$HOME/Desktop/Matcom-Guard-C/Scanners/"
 
-            # Compilar el código C del escáner de puertos
-            gcc -o "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner" "$HOME/Desktop/Matcom-Guard-C/Scanners/port_scanner.c" -lpthread 2>/dev/null
+            # Compilar el código C del escáner de procesos
+            gcc -o "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner" "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner.c" -lpthread 2>/dev/null
             if [ $? -ne 0 ]; then
                 echo -e "${RED}[!] Error al compilar el escáner.${NC}"
                 return 1
             fi
         fi
 
-        # Ejecutar el escáner de puertos
+        # Ejecutar el escáner de procesos
         if [ -f "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner" ]; then
             # Pasar los argumentos al ejecutable
-            "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner" "$ip" "$start_port" "$end_port" > Report/reporte_puertos.txt
+            echo ""
+            echo -e "${YELLOW}------------------------------------------------------------------------${NC}"
+            "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner" | tee Report/reporte_procesos.txt
         else
-            echo "[!] El ejecutable nombre_de_su_escaner no se encontró en ~/Scanners." > Report/reporte_puertos.txt
+            echo "[!] El ejecutable nombre_de_su_escaner no se encontró en ~/Scanners." | tee Report/reporte_procesos.txt
         fi
-
-    
-    
+    echo -e "${YELLOW}------------------------------------------------------------------------${NC}"
+    echo ""
+    #ps aux | grep -v "grep" | awk '{print $1, $2, $3, $4, $11}' > Report/reporte_procesos.txt
+    echo -e "${YELLOW}[+] Escaneo de procesos completado.${NC}"
     echo "🔍 Reporte guardado en: 📄Report/reporte_procesos.txt"
     #ps aux > Report/reporte_procesos.txt
+    echo ""
 }
 
 # Escaneo de puertos (usando nmap o netstat)
@@ -117,41 +126,43 @@ scan_ports() {
             return 1
         fi
 
-        echo rango valido
-
         IFS="-" read start_port end_port <<< "$port_range"
         if [ "$start_port" -lt 1 ] || [ "$end_port" -gt 65535 ] || [ "$start_port" -gt "$end_port" ]; then
             echo "Rango de puertos inválido. Debe estar entre 1-65535 y inicio <= fin"
             return 1
         fi
 
-        echo rango valido2
+        # Compilar el escáner de puertos si no existe
+        if [ ! -f "$HOME/Desktop/Matcom-Guard-C/Scanners/port_scanner" ]; then
+            echo "Compilando el escáner de puertos..."
+            mkdir -p "$HOME/Desktop/Matcom-Guard-C/Scanners"
+            cp port_scanner.c "$HOME/Desktop/Matcom-Guard-C/Scanners/"
 
-            # Compilar el escáner de puertos si no existe
-            if [ ! -f "$HOME/Desktop/Matcom-Guard-C/Scanners/port_scanner" ]; then
-                echo "Compilando el escáner de puertos..."
-                mkdir -p "$HOME/Desktop/Matcom-Guard-C/Scanners"
-                cp port_scanner.c "$HOME/Desktop/Matcom-Guard-C/Scanners/"
-
-                # Compilar el código C del escáner de puertos
-                gcc -o "$HOME/Desktop/Matcom-Guard-C/Scanners/port_scanner" "$HOME/Desktop/Matcom-Guard-C/Scanners/port_scanner.c" -lpthread 2>/dev/null
-                if [ $? -ne 0 ]; then
-                    echo -e "${RED}[!] Error al compilar el escáner de puertos.${NC}"
-                    return 1
-                fi
+            # Compilar el código C del escáner de puertos
+            gcc -o "$HOME/Desktop/Matcom-Guard-C/Scanners/port_scanner" "$HOME/Desktop/Matcom-Guard-C/Scanners/port_scanner.c" -lpthread 2>/dev/null
+            if [ $? -ne 0 ]; then
+            echo -e "${RED}[!] Error al compilar el escáner de puertos.${NC}"
+            return 1
             fi
+        fi
 
-            # Ejecutar el escáner de puertos
-            if [ -f "$HOME/Desktop/Matcom-Guard-C/Scanners/port_scanner" ]; then
-                # Pasar los argumentos al ejecutable
-                "$HOME/Desktop/Matcom-Guard-C/Scanners/port_scanner" "$ip" "$start_port" "$end_port" > Report/reporte_puertos.txt
-            else
-                echo "[!] El ejecutable port_scanner no se encontró en ~/Scanners." > Report/reporte_puertos.txt
-            fi
+        # Ejecutar el escáner de puertos y mostrar la salida en la terminal y en el archivo
+        if [ -f "$HOME/Desktop/Matcom-Guard-C/Scanners/port_scanner" ]; then
+            # Pasar los argumentos al ejecutable
+            echo ""
+            echo -e "${YELLOW}------------------------------------------------------------------------${NC}"
+            "$HOME/Desktop/Matcom-Guard-C/Scanners/port_scanner" "$ip" "$start_port" "$end_port" | tee Report/reporte_puertos.txt
+        else
+            echo "[!] El ejecutable port_scanner no se encontró en ~/Scanners." | tee Report/reporte_puertos.txt
+        fi
+        echo -e "${YELLOW}------------------------------------------------------------------------${NC}"
+        echo ""
+        echo -e "${YELLOW}[+] Escaneo de puertos completado.${NC}"
         echo "🔍 Reporte guardado en: 📄Report/reporte_puertos.txt"
     else
         echo -e "${RED}[!] No se encontró port_scanner.c en Scanners.${NC}"
     fi
+    echo ""
 }
 
 # Generar PDF unificado

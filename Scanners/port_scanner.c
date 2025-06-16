@@ -208,57 +208,11 @@ int scan_port(const char *ip, int port, int timeout_sec)
 
 int main(int argc, char *argv[])
 {
-    // Verificar argumentos
-    if (argc != 4)
-    {
-        printf("Uso: %s <IP> <Puerto_Inicial> <Puerto_Final>\n", argv[0]);
-        printf("Ejemplo: %s 127.0.0.1 1-1024\n", argv[0]);
-        return 1;
-    }
-
     const char *ip = argv[1];
     int start_port= atoi(argv[2]);
     int  end_port= atoi(argv[3]);
 
-
-    //Modo Interactivo
-/*
-
-    char ip[32];
-    int start_port, end_port;
-    printf("Ingrese la IP a escanear (dejar vacío para localhost): ");
-    //  fflush(stdout);
-    // Leer línea completa para detectar si está vacía
-    char input[64];
-    if (fgets(input, sizeof(input), stdin) != NULL) {
-        // Si solo se presionó Enter, usar localhost
-        if (input[0] == '\n') {
-            strcpy(ip, "127.0.0.1");
-        } else {
-            // Eliminar salto de línea si existe
-            input[strcspn(input, "\n")] = 0;
-            strncpy(ip, input, sizeof(ip) - 1);
-            ip[sizeof(ip) - 1] = '\0';
-        }
-    } else {
-        // En caso de error, usar localhost
-        strcpy(ip, "127.0.0.1");
-    }
-
-    printf("Ingrese el rango de puertos (ej: 1-1024):");
-    fflush(stdout); 
-    char port_range[64];
-    if (fgets(port_range, sizeof(port_range), stdin) != NULL) {
-        port_range[strcspn(port_range, "\n")] = 0;
-    }
-
-    if (sscanf(port_range, "%d-%d", &start_port, &end_port) != 2) {
-        printf("Formato de rango de puertos inválido. Use: inicio-fin (ej: 1-1024)\n");
-        return 1;
-    }
-    */
-
-
+    printf("\n");
     printf("IP a escanear: %s\n", ip);
     printf("Puerto Inicial: %d\n", start_port);
     printf("Puerto Final: %d\n", end_port);
@@ -295,6 +249,18 @@ int main(int argc, char *argv[])
     printf(" - Puertos escaneados: %d\n", end_port - start_port + 1);
     printf(" - Puertos abiertos: %d\n", open_ports);
     printf(" - Puertos sospechosos: %d\n", suspicious_ports);
+    printf(" - Puertos cerrados: %d\n", (end_port - start_port + 1) - open_ports);
+    printf(" - Puertos filtrados: %d\n", (end_port - start_port + 1) - open_ports - suspicious_ports);
+    printf("\n");
+    if (suspicious_ports > 0)
+    {
+        printf("⚠️ Se detectaron puertos sospechosos. Se recomienda investigar más a fondo.\n");
+    }
+    else
+    {
+        printf("✅ No se detectaron puertos sospechosos. El sistema parece estar limpio.\n");
+    }
+    printf("\n");
 
     return 0;
 }
