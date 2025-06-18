@@ -65,45 +65,43 @@ scan_files() {
 }
 
 # Escaneo de procesos y hilos 
-scan_process() {
-    echo -e "${GREEN}[+] Escaneando procesos y hilos... 🔄${NC}"
+scan_memory() {
+    echo -e "${GREEN}[+] Escaneando Memoria... 🔄${NC}"
     
 
     # verificar si el archivo existe
-    if [ -f "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner" ]; then
-        echo "El archivo "nombre_de_su_escaner" existe, procediendo con el escaneo ."
+    if [ -f "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner.c" ]; then
+        echo "El archivo "nombre_de_su_escaner" existe, procediendo con el escaneo.c ."
     else
         echo -e "${RED}[!] No se encontró "nombre_de_su_escaner"  en Scanners.${NC}"
         return 1
     fi
     # Compilar el escáner si no existe
-        if [ ! -f "$HOME/Desktop/Matcom-Guard-C/Scanners/ nombre_de_su_escaner" ]; then
-            echo "Compilando el escáner de puertos..."
+            echo "Compilando el escáner de memoria..."
             mkdir -p "$HOME/Desktop/Matcom-Guard-C/Scanners"
             cp nombre_de_su_escaner.c "$HOME/Desktop/Matcom-Guard-C/Scanners/"
 
-            # Compilar el código C del escáner de procesos
+            # Compilar el código C del escáner de memoria
             gcc -o "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner" "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner.c" -lpthread 2>/dev/null
             if [ $? -ne 0 ]; then
                 echo -e "${RED}[!] Error al compilar el escáner.${NC}"
                 return 1
             fi
-        fi
 
-        # Ejecutar el escáner de procesos
+        # Ejecutar el escáner de memoria
         if [ -f "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner" ]; then
             # Pasar los argumentos al ejecutable
             echo ""
             echo -e "${YELLOW}------------------------------------------------------------------------${NC}"
-            "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner" | tee Report/reporte_procesos.txt
+            "$HOME/Desktop/Matcom-Guard-C/Scanners/nombre_de_su_escaner" | tee Report/reporte_memoria.txt
         else
-            echo "[!] El ejecutable nombre_de_su_escaner no se encontró en ~/Scanners." | tee Report/reporte_procesos.txt
+            echo "[!] El ejecutable nombre_de_su_escaner no se encontró en ~/Scanners." | tee Report/reporte_memoria.txt
         fi
     echo -e "${YELLOW}------------------------------------------------------------------------${NC}"
     echo ""
     #ps aux | grep -v "grep" | awk '{print $1, $2, $3, $4, $11}' > Report/reporte_procesos.txt
-    echo -e "${YELLOW}[+] Escaneo de procesos completado.${NC}"
-    echo "🔍 Reporte guardado en: 📄Report/reporte_procesos.txt"
+    echo -e "${YELLOW}[+] Escaneo de memoria completado.${NC}"
+    echo "🔍 Reporte guardado en: 📄Report/reporte_memoria.txt"
     #ps aux > Report/reporte_procesos.txt
     echo ""
 }
@@ -203,8 +201,8 @@ show_menu() {
     echo -e "${ORANGE}========================================"
     echo "=== 🛡️ Gran Salón del Trono 🛡️ ==="
     echo -e "${NC}"
-    echo "1. Escanear sistema de archivos (SUID) y dispositivos USB"
-    echo "2. Escanear Procesos e Hilos"
+    echo "1. Escanear sistema de archivos (USB)"
+    echo "2. Escanear Memoria"
     echo "3. Escanear puertos"
     echo "4. Escanear TODO"
     echo "5. Exportar reporte a PDF"
@@ -227,7 +225,7 @@ while true; do
         3) scan_ports ;;
         4) 
             scan_files
-            scan_process
+            scan_memory
             scan_ports
             ;;
         5) generate_pdf ;;
