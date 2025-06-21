@@ -19,7 +19,6 @@ pthread_mutex_t report_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Función para escanear sistema de archivos
 void *scanFilesystem(void *arg) {
-
     
     FILE *fp = popen("ls -lah", "r");
     if (!fp) pthread_exit(NULL);
@@ -46,14 +45,26 @@ void *scanFilesystem(void *arg) {
 // Función para escanear memoria (usando el comando 'free' en Linux)
 void *scanMemory(void *arg) {
 
-
-    FILE *fp = popen("free -h", "r");
-    if (!fp) pthread_exit(NULL);
-
+    char cmd[256];
     char buffer[256];
     char temp[MAX_REPORT] = "";
+    // Ejecutar el escáner de memoria
+    if (arg) {
+        printf("[+] Escaneando memoria... 🔄\n");
+    }
+    // Compilar el escáner de memoria
+    system("gcc -o Scanners/Proccess/proccess_monitor Scanners/Proccess/process_monitor.c -lpthread");
+
+    snprintf(cmd, sizeof(cmd), "./Scanners/Proccess/proccess_monitor");
+    FILE *fp = popen(cmd, "r");
+    if (!fp) {
+        printf("[!] No se pudo ejecutar el escáner de memoria.\n");
+        pthread_exit(NULL);
+    }
+    // Leer la salida del comando
     while (fgets(buffer, sizeof(buffer), fp)) {
         strncat(temp, buffer, sizeof(temp) - strlen(temp) - 1);
+        if (arg) printf("%s", buffer); // Solo mostrar en consola si es interactivo
     }
     pclose(fp);
 
@@ -65,6 +76,9 @@ void *scanMemory(void *arg) {
     if (out) {
         fputs(temp, out);
         fclose(out);
+    }
+    if (arg) {
+        printf("🔍 Reporte guardado en: 📄Report/reporte_memoria.txt\n");
     }
     pthread_exit(NULL);
 }
@@ -98,14 +112,14 @@ void scanPorts(int interactive) {
     }
 
     // Compilar el escáner de puertos
-    system("gcc -o Scanners/port_scanner Scanners/port_scanner.c -lpthread");
+    system("gcc -o Scanners/port_scanner Scanners/Ports/port_scanner.c -lpthread");
     
     char cmd[256];
     snprintf(cmd, sizeof(cmd), "./Scanners/port_scanner %s %d %d", ip, start_port, end_port);
     FILE *fp = popen(cmd, "r");
     if (!fp) {
         printf("[!] No se pudo ejecutar el escáner de puertos.\n");
-        return;
+        pthread_exit(NULL);
     }
 
     while (fgets(buffer, sizeof(buffer), fp)) {
