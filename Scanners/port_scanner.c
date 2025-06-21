@@ -39,122 +39,81 @@ typedef struct
 {
     int port;
     const char *service;
+    const char *expected_process; // Nuevo: proceso esperado
 } PortService;
 
-// Lista de servicios comunes
+// Lista de servicios comunes y procesos esperados
 PortService common_services[] = {
-    {20, "FTP (Data)"},
-    {21, "FTP (Control)"},
-    {22, "SSH"},
-    {23, "Telnet"},
-    {25, "SMTP"},
-    {53, "DNS"},
-    {80, "HTTP"},
-    {110, "POP3"},
-    {143, "IMAP"},
-    {161, "SNMP"},
-    {389, "LDAP"},
-    {443, "HTTPS"},
-    {445, "Microsoft-DS"},
-    {465, "SMTPS"},
-    {514, "Syslog"},
-    {587, "Submission (SMTP)"},
-    {993, "IMAPS"},
-    {995, "POP3S"},
-    {1433, "Microsoft SQL Server"},
-    {1521, "Oracle DB"},
-    {1723, "PPTP"},
-    {3306, "MySQL"},
-    {3389, "RDP"},
-    {4444, "Sub 7 Backdoor"},
-    {5000, "UPnP"},
-    {5001, "Rsync"},
-    {5002, "Docker (API)"},
-    {5003, "Docker (Swarm)"},
-    {5004, "Docker (Swarm)"},
-    {5005, "Docker (Swarm)"},
-    {5432, "PostgreSQL"},
-    {5900, "VNC"},
-    {6000, "X11"},
-    {6379, "Redis"},
-    {6666, "Backdoor común"},
-    {6667, "IRC"},
-    {6969, "Backdoor común"},
-    {8000, "HTTP alternativo 2"},
-    {8069, "Odoo"},
-    {8080, "HTTP alternativo"},
-    {8081, "HTTP alternativo 3"},
-    {9000, "HTTP alternativo 4"},
-    {9200, "Elasticsearch"},
-    {9300, "Elasticsearch (Transport)"},
-    {10000, "Webmin"},
-    {11211, "Memcached"},
-    {12345, "NetBus Backdoor"},
-    {27017, "MongoDB"},
-    {27018, "MongoDB (Secundario)"},
-    {31337, "Back Orifice"},
-    {54321, "NetBus Pro Backdoor"},
-    {0, NULL} // Fin de la lista
+    {20, "FTP (Data)", "vsftpd"},
+    {21, "FTP (Control)", "vsftpd"},
+    {22, "SSH", "sshd"},
+    {23, "Telnet", "telnetd"},
+    {25, "SMTP", "master"},
+    {53, "DNS", "named"},
+    {80, "HTTP", "apache2"},
+    {110, "POP3", "dovecot"},
+    {143, "IMAP", "dovecot"},
+    {161, "SNMP", "snmpd"},
+    {389, "LDAP", "slapd"},
+    {443, "HTTPS", "apache2"},
+    {445, "Microsoft-DS", "smbd"},
+    {465, "SMTPS", "master"},
+    {514, "Syslog", "rsyslogd"},
+    {587, "Submission (SMTP)", "master"},
+    {993, "IMAPS", "dovecot"},
+    {995, "POP3S", "dovecot"},
+    {1433, "Microsoft SQL Server", "sqlservr"},
+    {1521, "Oracle DB", "oracle"},
+    {1723, "PPTP", "pptpd"},
+    {3306, "MySQL", "mysqld"},
+    {3389, "RDP", "Xvnc"},
+    {4444, "Sub 7 Backdoor", NULL},
+    {5000, "UPnP", "minissdpd"},
+    {5432, "PostgreSQL", "postgres"},
+    {5900, "VNC", "Xvnc"},
+    {6000, "X11", "Xorg"},
+    {6379, "Redis", "redis-server"},
+    {6666, "Backdoor común", NULL},
+    {6667, "IRC", "ircd"},
+    {6969, "Backdoor común", NULL},
+    {8000, "HTTP alternativo 2", "apache2"},
+    {8069, "Odoo", "odoo"},
+    {8080, "HTTP alternativo", "apache2"},
+    {8081, "HTTP alternativo 3", "apache2"},
+    {9000, "HTTP alternativo 4", "apache2"},
+    {9200, "Elasticsearch", "java"},
+    {9300, "Elasticsearch (Transport)", "java"},
+    {10000, "Webmin", "miniserv.pl"},
+    {11211, "Memcached", "memcached"},
+    {12345, "NetBus Backdoor", NULL},
+    {27017, "MongoDB", "mongod"},
+    {27018, "MongoDB (Secundario)", "mongod"},
+    {31337, "Back Orifice", NULL},
+    {54321, "NetBus Pro Backdoor", NULL},
+    {0, NULL, NULL} // Fin de la lista
 };
 
-// Función para obtener el nombre del servicio asociado a un puerto
-const char *get_service_name(int port)
+// Función para obtener el nombre del servicio y proceso esperado asociado a un puerto
+const PortService *get_service_info(int port)
 {
     for (int i = 0; common_services[i].service != NULL; i++)
     {
         if (common_services[i].port == port)
         {
-            return common_services[i].service;
+            return &common_services[i];
         }
     }
-    return "Desconocido";
+    return NULL;
 }
 
-// Función para verificar si un puerto es sospechoso
+// Función para verificar si un puerto es sospechoso (criterio avanzado)
 int is_suspicious_port(int port)
 {
-    // Lista de puertos comúnmente usados para backdoors o sospechosos
-    //int suspicious_ports[] = {31337, 6667, 4444, 12345, 54321, 6000, 6666, 6969, 0};
-    // Lista extendida de puertos comúnmente usados para backdoors o sospechosos
-    // Fuente: https://www.speedguide.net/ports.php y otras referencias de seguridad
     int suspicious_ports[] = {
-        31337, // Back Orifice
-        6667,  // IRC
-        4444,  // Sub7, Metasploit
-        12345, // NetBus
-        54321, // NetBus Pro
-        6000,  // X11
-        6666,  // Backdoor común
-        6969,  // Backdoor común
-        27444, // Trinoo
-        27665, // Trinoo
-        20034, // NetBus 2 Pro
-        31335, // Back Orifice
-        31338, // Deep Throat
-        31339, // NetSpy
-        31340, // The Invasor
-        31341, // BLA trojan
-        31343, // Back Orifice
-        31344, // Back Orifice
-        31345, // Back Orifice
-        31346, // Back Orifice
-        31348, // Back Orifice
-        31350, // Back Orifice
-        54320, // Backdoor
-        16959, // ZeroAccess
-        65000, // Devil
-        65001, // Devil
-        65002, // Devil
-        65003, // Devil
-        65004, // Devil
-        65005, // Devil
-        65006, // Devil
-        65007, // Devil
-        65008, // Devil
-        65009, // Devil
-        0
+        31337, 6667, 4444, 12345, 54321, 6000, 6666, 6969, 27444, 27665, 20034,
+        31335, 31338, 31339, 31340, 31341, 31343, 31344, 31345, 31346, 31348, 31350,
+        54320, 16959, 65000, 65001, 65002, 65003, 65004, 65005, 65006, 65007, 65008, 65009, 0
     };
-
     for (int i = 0; suspicious_ports[i] != 0; i++)
     {
         if (port == suspicious_ports[i])
@@ -162,14 +121,38 @@ int is_suspicious_port(int port)
             return 1;
         }
     }
-
     // Considerar sospechosos puertos altos sin servicio conocido
-    //if (port > 1024 && get_service_name(port) == "Desconocido")
-    if (port > 1024 && strcmp(get_service_name(port), "Desconocido") == 0)
+    const PortService *info = get_service_info(port);
+    if (port > 1024 && (!info || strcmp(info->service, "Desconocido") == 0))
     {
         return 1;
     }
     return 0;
+}
+
+// Función para obtener el proceso que escucha en un puerto (requiere sudo)
+void get_process_for_port(int port, char *result, size_t size)
+{
+    char cmd[256];
+    snprintf(cmd, sizeof(cmd), "sudo ss -ltnp | grep ':%d ' | awk '{print $NF}'", port);
+    FILE *fp = popen(cmd, "r");
+    if (fp)
+    {
+        if (fgets(result, size, fp) == NULL)
+            snprintf(result, size, "Desconocido");
+        else
+        {
+            // Limpiar salto de línea
+            size_t len = strlen(result);
+            if (len > 0 && result[len - 1] == '\n')
+                result[len - 1] = '\0';
+        }
+        pclose(fp);
+    }
+    else
+    {
+        snprintf(result, size, "Desconocido");
+    }
 }
 
 // Función para escanear un puerto
@@ -209,8 +192,8 @@ int scan_port(const char *ip, int port, int timeout_sec)
 int main(int argc, char *argv[])
 {
     const char *ip = argv[1];
-    int start_port= atoi(argv[2]);
-    int  end_port= atoi(argv[3]);
+    int start_port = atoi(argv[2]);
+    int end_port = atoi(argv[3]);
 
     printf("\n");
     printf("IP a escanear: %s\n", ip);
@@ -222,25 +205,34 @@ int main(int argc, char *argv[])
     int open_ports = 0;
     int suspicious_ports = 0;
 
-    // Escanear cada puerto en el rango
     for (int port = start_port; port <= end_port; port++)
     {
         if (scan_port(ip, port, 1))
-        { // Timeout de 1 segundo
-            const char *service = get_service_name(port);
+        {
+            const PortService *info = get_service_info(port);
             int suspicious = is_suspicious_port(port);
 
-            if (suspicious)
+            char process[128] = "Desconocido";
+            get_process_for_port(port, process, sizeof(process));
+
+            int process_match = 1;
+            if (info && info->expected_process && strstr(process, info->expected_process) == NULL)
+                process_match = 0;
+
+            if (suspicious || !process_match)
             {
-                printf("🚨 [ALERTA] Puerto %d/tcp abierto (%s) - posible backdoor o servicio sospechoso.\n",
-                       port, service);
+                printf("🚨 [ALERTA] Puerto %d/tcp abierto (%s) - Proceso: %s - ", port, info ? info->service : "Desconocido", process);
+                if (suspicious)
+                    printf("posible backdoor o servicio sospechoso");
+                if (!process_match)
+                    printf("%s%sproceso inesperado para este puerto", suspicious ? " y " : "", suspicious ? "" : "");
+                printf(".\n");
                 suspicious_ports++;
             }
             else
             {
-                printf("✅ [OK] Puerto %d/tcp (%s) abierto (esperado).\n", port, service);
+                printf("✅ [OK] Puerto %d/tcp (%s) abierto por %s (esperado).\n", port, info ? info->service : "Desconocido", process);
             }
-
             open_ports++;
         }
     }
@@ -250,19 +242,16 @@ int main(int argc, char *argv[])
     printf(" - Puertos abiertos: %d\n", open_ports);
     printf(" - Puertos sospechosos: %d\n", suspicious_ports);
     printf(" - Puertos cerrados: %d\n", (end_port - start_port + 1) - open_ports);
-    printf(" - Puertos filtrados: %d\n", (end_port - start_port + 1) - open_ports - suspicious_ports);
     printf("\n");
     if (suspicious_ports > 0)
     {
-        printf("⚠️ Se detectaron puertos sospechosos. Se recomienda investigar más a fondo.\n");
+        printf("⚠️ Se detectaron puertos. Se recomienda investigar más a fondo.\n");
     }
     else
     {
-        printf("✅ No se detectaron puertos sospechosos. El sistema parece estar limpio.\n");
+        printf("✅ No se detectaron puertos. El sistema parece estar limpio.\n");
     }
     printf("\n");
 
     return 0;
 }
-
-
