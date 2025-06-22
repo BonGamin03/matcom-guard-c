@@ -460,11 +460,8 @@ int main() {
     sleep(7);
 
     // Abrir terminal para mostrar alertas en tiempo real
-    //system("gnome-terminal -- bash -c 'cat Report/alertas_guard.txt; tail -f Report/alertas_guard.txt' &");
     system("gnome-terminal -- bash -c 'tail -n +1 -f Report/alertas_guard.txt' &");
-    //system("gnome-terminal -- tail -f Report/alertas_guard.txt &");
-    //system("xterm -hold -e tail -f Report/alertas_guard.txt &");
-    //system("konsole -e tail -f Report/alertas_guard.txt &");
+    //system("xterm -hold -e 'tail -n +1 -f Report/alertas_guard.txt' &");
     
     printf("🔔 Terminal de alertas abierta. Monitoreando eventos...\n");
 
