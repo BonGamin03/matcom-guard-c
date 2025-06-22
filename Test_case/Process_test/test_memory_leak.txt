@@ -1,0 +1,88 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+/*
+ * Test para generar fuga de memoria (Alto uso de RAM)
+ * Este programa consume memoria progresivamente
+ * Debe generar alerta en MatCom Guard cuando supere el umbral del 50%
+ */
+
+#define CHUNK_SIZE 10 * 1024 * 1024  // 10MB por chunk
+#define MAX_CHUNKS 1000
+
+int main() {
+    printf("🧠 INICIANDO TEST: Fuga de Memoria (Alto uso de RAM)\n");
+    printf("📋 Descripción: Consume memoria progresivamente hasta superar 50%% RAM\n");
+    printf("🎯 Resultado esperado: MatCom Guard debe generar ALERTA\n");
+    printf("⚠️  ADVERTENCIA: Este programa consume memoria real del sistema\n");
+    printf("⏱️  Presiona Ctrl+C para detener cuando veas la alerta\n\n");
+    
+    void* chunks[MAX_CHUNKS];
+    int allocated_chunks = 0;
+    
+    printf("🚀 Comenzando asignación de memoria...\n");
+    printf("📊 Cada chunk = %d MB\n", CHUNK_SIZE / (1024 * 1024));
+    printf("📈 Monitorea MatCom Guard para ver la alerta de RAM...\n\n");
+    
+    while (allocated_chunks < MAX_CHUNKS) {
+        // Asignar memoria
+        chunks[allocated_chunks] = malloc(CHUNK_SIZE);
+        
+        if (chunks[allocated_chunks] == NULL) {
+            printf("❌ Error: No se pudo asignar más memoria\n");
+            break;
+        }
+        
+        // Llenar la memoria para asegurar que se use realmente
+        memset(chunks[allocated_chunks], 0xAA, CHUNK_SIZE);
+        
+        allocated_chunks++;
+        
+        // Mostrar progreso
+        int total_mb = allocated_chunks * (CHUNK_SIZE / (1024 * 1024));
+        printf("💾 Memoria asignada: %d MB (%d chunks)\n", total_mb, allocated_chunks);
+        
+        // Esperar un poco para que MatCom Guard pueda detectar el cambio
+        sleep(2);
+        
+        // Escribir en la memoria para mantenerla activa
+        char* ptr = (char*)chunks[allocated_chunks - 1];
+        for (int i = 0; i < CHUNK_SIZE; i += 4096) {
+            ptr[i] = (char)(allocated_chunks % 256);
+        }
+    }
+    
+    printf("\n🔄 Manteniendo memoria asignada...\n");
+    printf("📊 Total asignado: %d MB\n", allocated_chunks * (CHUNK_SIZE / (1024 * 1024)));
+    printf("⏸️  Presiona Ctrl+C para liberar memoria y salir\n");
+    
+    // Mantener el proceso vivo con la memoria asignada
+    while (1) {
+        sleep(5);
+        
+        // Acceder a la memoria ocasionalmente para mantenerla activa
+        for (int i = 0; i < allocated_chunks; i += 10) {
+            if (chunks[i] != NULL) {
+                volatile char* ptr = (char*)chunks[i];
+                volatile char dummy = ptr[0];  // Acceso de lectura
+                ptr[0] = (char)(i % 256);      // Acceso de escritura
+            }
+        }
+        
+        printf("💾 Memoria activa: %d MB - Proceso PID: %d\n", 
+               allocated_chunks * (CHUNK_SIZE / (1024 * 1024)), getpid());
+    }
+    
+    // Liberar memoria (este código no se ejecutará con Ctrl+C)
+    printf("\n🧹 Liberando memoria...\n");
+    for (int i = 0; i < allocated_chunks; i++) {
+        if (chunks[i] != NULL) {
+            free(chunks[i]);
+        }
+    }
+    
+    printf("✅ Memoria liberada exitosamente\n");
+    return 0;
+}

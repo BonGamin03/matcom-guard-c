@@ -33,6 +33,8 @@ El programa utiliza conexiones TCP activas para determinar el estado de los puer
 #include <errno.h>
 #include <time.h>
 #include <sys/time.h>
+#include "../../Scanners/util.h"
+
 
 // Estructura para mapear puertos a servicios conocidos
 typedef struct
@@ -228,6 +230,12 @@ int main(int argc, char *argv[])
                     printf("%s%sproceso inesperado para este puerto", suspicious ? " y " : "", suspicious ? "" : "");
                 printf(".\n");
                 suspicious_ports++;
+
+                // Escribir alerta en el archivo
+                char alert_message[512];
+                snprintf(alert_message, sizeof(alert_message), "🚨 ALERTA PUERTOS:  Puerto %d/tcp abierto por %s(proceso: %s) - posible backdoor o servicio sospechoso.", port, info ? info->service : "Desconocido", process);
+                Write_Alert(alert_message);
+                //system("cat Report/alertas_guard.txt"); //Muestra las alertas en tiempo real
             }
             else
             {

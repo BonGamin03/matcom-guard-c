@@ -17,13 +17,9 @@
 #define MAX_FILES 10000
 #define HASH_SIZE 33
 #define THRESHOLD_PERCENTAGE 10
-#define SCAN_INTERVAL 15  // Aumentado de 5 a 15 segundos
+#define SCAN_INTERVAL 5
 #define EVENT_SIZE (sizeof(struct inotify_event))
 #define BUF_LEN (1024 * (EVENT_SIZE + 16))
-
-// Constantes para detectar crecimiento inusual
-#define GROWTH_THRESHOLD_PERCENTAGE 200  // 200% = archivo creció al doble
-#define GROWTH_THRESHOLD_BYTES 1048576   // 1MB de crecimiento súbito
 
 // Estructuras de datos
 typedef struct {
@@ -34,8 +30,6 @@ typedef struct {
     mode_t permissions;
     uid_t owner;
     gid_t group;
-    char extension[32];  // Extensión del archivo
-    int exists;          // Flag para marcar si el archivo existe
 } FileInfo;
 
 typedef struct {
@@ -49,7 +43,6 @@ typedef struct {
     int is_monitored;
     int inotify_fd;
     int watch_descriptor;
-    int first_scan_done;  // Flag para saber si ya se hizo el primer escaneo
 } USBDevice;
 
 typedef struct {
@@ -82,11 +75,6 @@ void detect_deleted_files(USBDevice *device);
 void detect_modified_files(USBDevice *device);
 int find_file_in_array(FileInfo *files, int count, const char *path);
 const char* get_filename_from_path(const char *path);
-void extract_file_extension(const char *path, char *extension);
-void analyze_file_modification(FileInfo *current, FileInfo *previous, const char *device_name);
-void detect_file_replication(USBDevice *device);
-int are_files_similar(FileInfo *file1, FileInfo *file2);
-void copy_file_array(FileInfo *dest, FileInfo *src, int count);
 
 // Función principal
 int main(int argc, char *argv[]) {
@@ -114,7 +102,7 @@ int main(int argc, char *argv[]) {
             }
         }
         
-        sleep(2); // Intervalo más corto para inotify pero el escaneo es cada 15 segundos
+        sleep(1); // Reducir intervalo para mejor respuesta de inotify
     }
     
     return 0;
@@ -178,7 +166,6 @@ void scan_mount_points(void) {
                     new_device->is_monitored = 1;
                     new_device->inotify_fd = -1;
                     new_device->watch_descriptor = -1;
-                    new_device->first_scan_done = 0;
                     
                     printf("🔍 Nueva amenaza potencial detectada: %s en %s\n", 
                            device, mount_point);
@@ -187,10 +174,9 @@ void scan_mount_points(void) {
                     // Configurar inotify para monitoreo en tiempo real
                     setup_inotify(new_device);
                     
-                    // Realizar escaneo inicial
+                    // Realizar escaneo inicial con protección
                     printf("📊 Iniciando escaneo inicial...\n");
                     scan_device_files(new_device);
-                    new_device->first_scan_done = 1;
                     guard.device_count++;
                 }
             }
@@ -241,9 +227,32 @@ void handle_inotify_events(USBDevice *device) {
         
         if (event->len > 0) {
             char full_path[MAX_PATH];
-            //snprintf(full_path, sizeof(full_path), "%s/%s", device->mount_point, event->name);
-            snprintf(full_path, sizeof(full_path), device->mount_point, event->name);
+            snprintf(full_path, sizeof(full_path),device->mount_point, event->name);
             
+            /*
+            #define MAX_PATH_LEN 4096
+            char full_path[MAX_PATH_LEN];
+
+            // Limitar los componentes para evitar overflow
+            size_t mount_len = strlen(device->mount_point);
+            size_t name_len = strlen(event->name);
+            size_t max_name = MAX_PATH_LEN - mount_len - 2; // -2 por '/' y '\0'
+
+            char safe_name[MAX_PATH_LEN];
+            if (name_len > max_name) {
+                strncpy(safe_name, event->name, max_name);
+                safe_name[max_name] = '\0';
+            } else {
+                strcpy(safe_name, event->name);
+            }
+
+            int written = snprintf(full_path, sizeof(full_path), "%s/%s", device->mount_point, safe_name);
+            if (written < 0 || written >= MAX_PATH_LEN) {
+            fprintf(stderr, "Advertencia: la ruta fue truncada: %s/%s\n", device->mount_point, event->name);
+            }
+            */
+
+
             if (event->mask & IN_CREATE) {
                 printf("📁 ¡ARCHIVO AÑADIDO! %s\n", event->name);
                 emit_alert(device->device_name, "ARCHIVO_AÑADIDO", event->name);
@@ -303,31 +312,20 @@ void monitor_device(USBDevice *device) {
     if (current_time - device->last_scan >= SCAN_INTERVAL) {
         printf("🔍 Patrullando %s...\n", device->mount_point);
         
-        // Guardar estado anterior solo si ya hicimos al menos un escaneo
-        if (device->first_scan_done) {
-            copy_file_array(device->previous_files, device->files, device->file_count);
-            device->previous_file_count = device->file_count;
-        }
+        // Guardar estado anterior
+        memcpy(device->previous_files, device->files, sizeof(device->files));
+        device->previous_file_count = device->file_count;
         
         // Nuevo escaneo
         device->file_count = 0;
         scan_device_files(device);
         
-        // Detectar cambios específicos (solo si no es el primer escaneo)
-        if (device->first_scan_done && (device->previous_file_count > 0 || device->file_count > 0)) {
+        // Detectar cambios específicos
+        if (device->previous_file_count > 0 || device->file_count > 0) {
             detect_file_changes(device);
         }
         
         device->last_scan = current_time;
-        device->first_scan_done = 1;
-    }
-}
-
-void copy_file_array(FileInfo *dest, FileInfo *src, int count) {
-    if (!dest || !src) return;
-    
-    for (int i = 0; i < count && i < MAX_FILES; i++) {
-        memcpy(&dest[i], &src[i], sizeof(FileInfo));
     }
 }
 
@@ -354,8 +352,7 @@ void scan_directory_recursive(const char *dir_path, USBDevice *device) {
         }
         
         char full_path[MAX_PATH];
-        //int ret = snprintf(full_path, sizeof(full_path), "%s/%s", dir_path, entry->d_name);
-        int ret = snprintf(full_path, sizeof(full_path), dir_path, entry->d_name);
+        int ret = snprintf(full_path, sizeof(full_path), "%s/%s", dir_path, entry->d_name);
         if (ret >= sizeof(full_path)) {
             continue; // Path too long
         }
@@ -375,10 +372,6 @@ void scan_directory_recursive(const char *dir_path, USBDevice *device) {
                 file_info->permissions = file_stat.st_mode;
                 file_info->owner = file_stat.st_uid;
                 file_info->group = file_stat.st_gid;
-                file_info->exists = 1;
-                
-                // Extraer extensión del archivo
-                extract_file_extension(full_path, file_info->extension);
                 
                 // Calcular hash del archivo
                 if (calculate_file_hash(full_path, file_info->hash) == 0) {
@@ -394,25 +387,6 @@ void scan_directory_recursive(const char *dir_path, USBDevice *device) {
     closedir(dir);
 }
 
-void extract_file_extension(const char *path, char *extension) {
-    if (!path || !extension) return;
-    
-    const char *dot = strrchr(path, '.');
-    if (dot && dot != path) {
-        strncpy(extension, dot + 1, 31);
-        extension[31] = '\0';
-        
-        // Convertir a minúsculas
-        for (int i = 0; extension[i]; i++) {
-            if (extension[i] >= 'A' && extension[i] <= 'Z') {
-                extension[i] = extension[i] + 32;
-            }
-        }
-    } else {
-        strcpy(extension, "");
-    }
-}
-
 void detect_file_changes(USBDevice *device) {
     if (!device) return;
     
@@ -424,11 +398,8 @@ void detect_file_changes(USBDevice *device) {
     // Detectar archivos eliminados
     detect_deleted_files(device);
     
-    // Detectar archivos modificados con análisis detallado
+    // Detectar archivos modificados
     detect_modified_files(device);
-    
-    // Detectar replicación de archivos
-    detect_file_replication(device);
     
     printf("✅ Análisis de cambios completado\n");
 }
@@ -447,8 +418,8 @@ void detect_added_files(USBDevice *device) {
             printf("📁 ¡NUEVO ARCHIVO DETECTADO! %s\n", filename);
             
             char details[512];
-            snprintf(details, sizeof(details), "Archivo añadido: %s (Tamaño: %ld bytes, Ext: %s)", 
-                    filename, device->files[i].size, device->files[i].extension);
+            snprintf(details, sizeof(details), "Archivo añadido: %s (Tamaño: %ld bytes)", 
+                    filename, device->files[i].size);
             emit_alert(device->device_name, "ARCHIVO_AÑADIDO", details);
         }
     }
@@ -468,8 +439,8 @@ void detect_deleted_files(USBDevice *device) {
             printf("🗑️  ¡ARCHIVO ELIMINADO DETECTADO! %s\n", filename);
             
             char details[512];
-            snprintf(details, sizeof(details), "Archivo eliminado: %s (Era de %ld bytes, Ext: %s)", 
-                    filename, device->previous_files[i].size, device->previous_files[i].extension);
+            snprintf(details, sizeof(details), "Archivo eliminado: %s (Era de %ld bytes)", 
+                    filename, device->previous_files[i].size);
             emit_alert(device->device_name, "ARCHIVO_ELIMINADO", details);
         }
     }
@@ -487,201 +458,22 @@ void detect_modified_files(USBDevice *device) {
             // El archivo existía antes, verificar si cambió
             FileInfo *current = &device->files[i];
             FileInfo *previous = &device->previous_files[prev_index];
-            const char *filename = get_filename_from_path(current->path);
             
-            // 1. Cambio de tamaño
-            if (current->size != previous->size) {
-                if (current->size > previous->size) {
-                    off_t growth = current->size - previous->size;
-                    printf("📏 El tamaño del archivo \"%s\" ha aumentado de %ld a %ld bytes (+%ld bytes)\n", 
-                           filename, previous->size, current->size, growth);
-                } else {
-                    off_t reduction = previous->size - current->size;
-                    printf("📏 El tamaño del archivo \"%s\" ha disminuido de %ld a %ld bytes (-%ld bytes)\n", 
-                           filename, previous->size, current->size, reduction);
-                }
-            }
-            
-            // 2. Cambio de extensión
-            if (strcmp(current->extension, previous->extension) != 0) {
-                if (strlen(previous->extension) == 0) {
-                    printf("🔄 La extensión del archivo \"%s\" ha cambiado de (sin extensión) a .%s\n", 
-                           filename, current->extension);
-                } else if (strlen(current->extension) == 0) {
-                    printf("🔄 La extensión del archivo \"%s\" ha cambiado de .%s a (sin extensión)\n", 
-                           filename, previous->extension);
-                } else {
-                    printf("🔄 La extensión del archivo \"%s\" ha cambiado de .%s a .%s\n", 
-                           filename, previous->extension, current->extension);
-                }
-            }
-            
-            // 3. Cambio de permisos
-            if (current->permissions != previous->permissions) {
-                printf("🔐 Los permisos del archivo \"%s\" han cambiado de %o a %o\n", 
-                       filename, 
-                       previous->permissions & 0777, current->permissions & 0777);
-            }
-            
-            // 4. Cambio de contenido (hash)
-            if (strcmp(current->hash, previous->hash) != 0) {
-                printf("📝 El contenido del archivo \"%s\" ha sido modificado\n", filename);
-            }
-            
-            // 5. Cambio de fecha de modificación
-            if (current->last_modified != previous->last_modified) {
-                char prev_time[64], curr_time[64];
-                struct tm *prev_tm = localtime(&previous->last_modified);
-                struct tm *curr_tm = localtime(&current->last_modified);
+            if (current->last_modified != previous->last_modified ||
+                current->size != previous->size ||
+                strcmp(current->hash, previous->hash) != 0) {
                 
-                strftime(prev_time, sizeof(prev_time), "%Y-%m-%d %H:%M:%S", prev_tm);
-                strftime(curr_time, sizeof(curr_time), "%Y-%m-%d %H:%M:%S", curr_tm);
-                
-                printf("⏰ La fecha de modificación del archivo \"%s\" ha cambiado de %s a %s\n", 
-                       filename, prev_time, curr_time);
-            }
-            
-            // 6. Cambio de propietario
-            if (current->owner != previous->owner || current->group != previous->group) {
-                printf("👤 El propietario del archivo \"%s\" ha cambiado de UID:%d GID:%d a UID:%d GID:%d\n", 
-                       filename, 
-                       previous->owner, previous->group, current->owner, current->group);
-            }
-            
-            // Si hubo cualquier cambio, hacer análisis detallado
-            if (current->size != previous->size || 
-                strcmp(current->extension, previous->extension) != 0 ||
-                current->permissions != previous->permissions ||
-                strcmp(current->hash, previous->hash) != 0 ||
-                current->last_modified != previous->last_modified ||
-                current->owner != previous->owner ||
-                current->group != previous->group) {
-                
-                analyze_file_modification(current, previous, device->device_name);
-            }
-        }
-    }
-}
-
-void analyze_file_modification(FileInfo *current, FileInfo *previous, const char *device_name) {
-    if (!current || !previous || !device_name) return;
-    
-    const char *filename = get_filename_from_path(current->path);
-    
-    // 1. Verificar crecimiento inusual de tamaño
-    if (current->size > previous->size) {
-        off_t growth = current->size - previous->size;
-        double growth_percentage = (double)growth / (previous->size > 0 ? previous->size : 1) * 100.0;
-        
-        if (growth_percentage > GROWTH_THRESHOLD_PERCENTAGE || growth > GROWTH_THRESHOLD_BYTES) {
-            printf("🚨 ¡CRECIMIENTO INUSUAL! El archivo \"%s\" ha crecido de manera sospechosa\n", filename);
-            
-            char details[512];
-            snprintf(details, sizeof(details), 
-                    "CRECIMIENTO INUSUAL: El archivo \"%s\" creció %.1f%% (%ld -> %ld bytes)", 
-                    filename, growth_percentage, previous->size, current->size);
-            emit_alert(device_name, "CRECIMIENTO_INUSUAL", details);
-        }
-    }
-    
-    // 2. Verificar cambio de extensión
-    if (strcmp(current->extension, previous->extension) != 0) {
-        char details[512];
-        if (strlen(previous->extension) == 0) {
-            snprintf(details, sizeof(details), 
-                    "CAMBIO DE EXTENSIÓN: El archivo \"%s\" ahora tiene extensión .%s", 
-                    filename, current->extension);
-        } else if (strlen(current->extension) == 0) {
-            snprintf(details, sizeof(details), 
-                    "CAMBIO DE EXTENSIÓN: El archivo \"%s\" perdió su extensión .%s", 
-                    filename, previous->extension);
-        } else {
-            snprintf(details, sizeof(details), 
-                    "CAMBIO DE EXTENSIÓN: El archivo \"%s\" cambió de .%s a .%s", 
-                    filename, previous->extension, current->extension);
-        }
-        emit_alert(device_name, "CAMBIO_EXTENSION", details);
-    }
-    
-    // 3. Verificar cambio de permisos
-    if (current->permissions != previous->permissions) {
-        char details[512];
-        snprintf(details, sizeof(details), 
-                "CAMBIO DE PERMISOS: El archivo \"%s\" cambió permisos de %o a %o", 
-                filename, previous->permissions & 0777, current->permissions & 0777);
-        emit_alert(device_name, "CAMBIO_PERMISOS", details);
-    }
-    
-    // 4. Verificar cambio de contenido (hash diferente)
-    if (strcmp(current->hash, previous->hash) != 0) {
-        char details[512];
-        snprintf(details, sizeof(details), 
-                "CONTENIDO MODIFICADO: El archivo \"%s\" tiene nuevo contenido", 
-                filename);
-        emit_alert(device_name, "CONTENIDO_MODIFICADO", details);
-    }
-    
-    // 5. Verificar cambio de propietario
-    if (current->owner != previous->owner || current->group != previous->group) {
-        char details[512];
-        snprintf(details, sizeof(details), 
-                "CAMBIO DE PROPIETARIO: El archivo \"%s\" cambió de UID:%d GID:%d a UID:%d GID:%d", 
-                filename, previous->owner, previous->group, current->owner, current->group);
-        emit_alert(device_name, "CAMBIO_PROPIETARIO", details);
-    }
-    
-    // 6. Análisis de cambio de tamaño
-    if (current->size != previous->size) {
-        char details[512];
-        if (current->size > previous->size) {
-            off_t growth = current->size - previous->size;
-            snprintf(details, sizeof(details), 
-                    "TAMAÑO INCREMENTADO: El archivo \"%s\" creció %ld bytes (%ld -> %ld)", 
-                    filename, growth, previous->size, current->size);
-        } else {
-            off_t reduction = previous->size - current->size;
-            snprintf(details, sizeof(details), 
-                    "TAMAÑO REDUCIDO: El archivo \"%s\" se redujo %ld bytes (%ld -> %ld)", 
-                    filename, reduction, previous->size, current->size);
-        }
-        emit_alert(device_name, "CAMBIO_TAMAÑO", details);
-    }
-}
-
-void detect_file_replication(USBDevice *device) {
-    if (!device) return;
-    
-    printf("🔍 Detectando replicación de archivos...\n");
-    
-    // Comparar archivos actuales para encontrar duplicados sospechosos
-    for (int i = 0; i < device->file_count - 1; i++) {
-        for (int j = i + 1; j < device->file_count; j++) {
-            if (are_files_similar(&device->files[i], &device->files[j])) {
-                const char *filename1 = get_filename_from_path(device->files[i].path);
-                const char *filename2 = get_filename_from_path(device->files[j].path);
-                
-                printf("👥 ¡REPLICACIÓN DETECTADA! Los archivos \"%s\" y \"%s\" son idénticos\n", filename1, filename2);
+                const char *filename = get_filename_from_path(current->path);
+                printf("✏️  ¡ARCHIVO MODIFICADO DETECTADO! %s\n", filename);
                 
                 char details[512];
                 snprintf(details, sizeof(details), 
-                        "REPLICACIÓN: Archivos idénticos detectados: \"%s\" (%ld bytes) y \"%s\" (%ld bytes)", 
-                        filename1, device->files[i].size, filename2, device->files[j].size);
-                emit_alert(device->device_name, "REPLICACION_ARCHIVOS", details);
+                        "Archivo modificado: %s (Tamaño: %ld->%ld bytes)", 
+                        filename, previous->size, current->size);
+                emit_alert(device->device_name, "ARCHIVO_MODIFICADO", details);
             }
         }
     }
-}
-
-int are_files_similar(FileInfo *file1, FileInfo *file2) {
-    if (!file1 || !file2) return 0;
-    
-    // Archivos similares si:
-    // 1. Tienen el mismo tamaño
-    // 2. Tienen el mismo hash (mismo contenido)
-    // 3. Pero nombres diferentes
-    return (file1->size == file2->size && 
-            strcmp(file1->hash, file2->hash) == 0 &&
-            strcmp(file1->path, file2->path) != 0);
 }
 
 int find_file_in_array(FileInfo *files, int count, const char *path) {
@@ -723,7 +515,18 @@ int calculate_file_hash(const char *filepath, char *hash_output) {
     bytes_read = fread(buffer, 1, 512, file);
     for (size_t i = 0; i < bytes_read; i++) {
         hash = hash * 31 + buffer[i];
+    }
+    
+    // Si el archivo es grande, leer últimos 512 bytes
+    if (st.st_size > 1024) {
+        if (fseek(file, -512, SEEK_END) == 0) {
+            bytes_read = fread(buffer, 1, 512, file);
+            for (size_t i = 0; i < bytes_read; i++) {
+                hash = hash * 31 + buffer[i];
             }
+        }
+    }
+    
     // Convertir a string hexadecimal
     snprintf(hash_output, HASH_SIZE, "%08lx", hash);
     
@@ -755,8 +558,7 @@ void emit_alert(const char *device_name, const char *alert_type, const char *det
     snprintf(alert_message, sizeof(alert_message), 
             "🚨 ALERTA USB: [%s] %s en %s - %s", 
             time_str ? time_str : "UNKNOWN", alert_type, device_name, details);
-    Write_Alert(alert_message);
-    //system("cat Report/alertas_guard.txt"); //Muestra las alertas en tiempo real
+    escribir_alerta(alert_message);
 }
 
 void log_event(const char *message) {
