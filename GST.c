@@ -188,7 +188,7 @@ void *scanPorts(void *arg) {
     while (keep_running) {
         char cmd[256];
         char ip[] = "127.0.0.1";
-        int start_port = 1, end_port = 1000; // Reducido para evitar timeouts largos
+        int start_port = 1, end_port = 65535; // Reducido para evitar timeouts largos
         char buffer[4096];
         char temp[MAX_REPORT] = "";
         
@@ -240,6 +240,59 @@ void *scanPorts(void *arg) {
         sleep(10);
     }
     pthread_exit(NULL);
+}
+
+//Escanear puertos de forma interactiva
+void scanPortsInteractive() {
+    char ip[64] = "127.0.0.1";
+    char port_range[32] = "";
+    int start_port = 1, end_port = 65535;
+
+    printf("Ingrese la IP a escanear (dejar vacío para localhost): ");
+    if (fgets(ip, sizeof(ip), stdin) == NULL) {
+        printf("❌ Error al leer la IP.\n");
+        return;
+    }
+    ip[strcspn(ip, "\n")] = 0;
+    if (strlen(ip) == 0) strcpy(ip, "127.0.0.1");
+
+    printf("Ingrese el rango de puertos (ej: 1-1024, dejar vacío para 1-65535): ");
+    if (fgets(port_range, sizeof(port_range), stdin) == NULL) {
+        printf("❌ Error al leer el rango de puertos.\n");
+        return;
+    }
+    port_range[strcspn(port_range, "\n")] = 0;
+    if (strlen(port_range) == 0) {
+        start_port = 1;
+        end_port = 65535;
+    } else if (sscanf(port_range, "%d-%d", &start_port, &end_port) != 2 ||
+                start_port < 1 || end_port > 65535 || start_port > end_port) {
+        printf("Rango de puertos inválido. Use: inicio-fin (ej: 1-1024)\n");
+        // Limpiar buffer solo si hay basura
+        int c;
+        while ((c = getchar()) != '\n' && c != EOF);
+        return;
+    }
+
+    // Limpiar buffer solo si hay basura
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+
+    char cmd[256];
+    snprintf(cmd, sizeof(cmd), "./Scanners/Ports/port_scanner %s %d %d", ip, start_port, end_port);
+
+    printf("\n\033[1;36m~~~~~~~~~~~~~~>>> Resultado del escaneo personalizado <<<~~~~~~~~~~~~~~\033[0m\n\n");
+    FILE *fp = popen(cmd, "r");
+    if (fp) {
+        char buffer[512];
+        while (fgets(buffer, sizeof(buffer), fp)) {
+            fputs(buffer, stdout);
+        }
+        pclose(fp);
+    } else {
+        printf("❌ Error al ejecutar el escáner de puertos.\n");
+    }
+    printf("\n\033[1;33m------------------------------------------------------------------------\033[0m\n");
 }
 
 // Funciones para imprimir los reportes en consola
@@ -407,7 +460,8 @@ int main() {
 
     // Abrir terminal para mostrar alertas en tiempo real
     system("touch Report/alertas_guard.txt");
-    system("gnome-terminal -- tail -f Report/alertas_guard.txt &");
+    system("gnome-terminal -- bash -c 'cat Report/alertas_guard.txt; tail -f Report/alertas_guard.txt' &");
+    //system("gnome-terminal -- tail -f Report/alertas_guard.txt &");
     //system("xterm -hold -e tail -f Report/alertas_guard.txt &");
     //system("konsole -e tail -f Report/alertas_guard.txt &");
     
@@ -451,7 +505,7 @@ int main() {
                 print_mem_report();
                 break;
             case 3:
-                print_port_report();
+                scanPortsInteractive();
                 break;
             case 4:
                 print_fs_report();

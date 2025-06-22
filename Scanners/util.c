@@ -62,6 +62,8 @@ void Write_Alert(const char * message) {
 
 void inicializar_alertas_guard() {
 
+    //libera el archivo de alertas
+    system("rm -f Report/alertas_guard.txt");
     // Crear archivo de alertas vacío si no existe
     system("touch Report/alertas_guard.txt");
     // Configurar permisos para que sea accesible
