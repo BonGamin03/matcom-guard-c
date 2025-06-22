@@ -62,12 +62,10 @@ void Write_Alert(const char * message) {
 
 void inicializar_alertas_guard() {
 
-    //libera el archivo de alertas
-    system("rm -f Report/alertas_guard.txt");
     // Crear archivo de alertas vacío si no existe
     system("touch Report/alertas_guard.txt");
     // Configurar permisos para que sea accesible
-    system("chmod 777 /Report/alertas_guard.txt");
+    system("chmod 777 Report/alertas_guard.txt");
 
     // Verificar si el archivo está vacío y escribir encabezado si es necesario
     FILE *f = fopen("Report/alertas_guard.txt", "r");

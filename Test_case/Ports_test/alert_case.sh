@@ -11,5 +11,5 @@ sudo nc -l -p 6667 &
 
 echo "Inicia tu interfaz GST en otra terminal y observa la terminal de alertas."
 echo "Después de unos segundos, deberías ver alertas de puertos sospechosos."
-echo "Cuando termines, ejecuta: sudo killall nc"
+echo "Cuando termines, ejecuta: sudo killall nc 2>/dev/null"
 

@@ -756,7 +756,6 @@ void emit_alert(const char *device_name, const char *alert_type, const char *det
             "🚨 ALERTA USB: [%s] %s en %s - %s", 
             time_str ? time_str : "UNKNOWN", alert_type, device_name, details);
     Write_Alert(alert_message);
-    //system("cat Report/alertas_guard.txt"); //Muestra las alertas en tiempo real
 }
 
 void log_event(const char *message) {

@@ -318,8 +318,6 @@ void check_alert(){
                 "🚨 ALERTA PROCESOS: Proceso '%s' (PID: %d) - %s", 
                 processes[i].name, processes[i].pid, text);
             Write_Alert(alert_message);
-            //system("cat Report/alertas_guard.txt"); //Muestra las alertas en tiempo real
-
         }
     }
 

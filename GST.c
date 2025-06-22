@@ -427,7 +427,8 @@ void abrir_reporte_txt(const char *nombre_archivo) {
 int main() {
     int option;
     pthread_t fs_tid, mem_tid, port_tid;
-    
+
+    printf("🛡️  Bienvenido al Gran Salón del Trono de Matcom Guard\n");
     printf("🚀 Iniciando Sistema de Monitoreo...\n");
     
     // Inicializar mutex
@@ -459,8 +460,8 @@ int main() {
     sleep(7);
 
     // Abrir terminal para mostrar alertas en tiempo real
-    system("touch Report/alertas_guard.txt");
-    system("gnome-terminal -- bash -c 'cat Report/alertas_guard.txt; tail -f Report/alertas_guard.txt' &");
+    //system("gnome-terminal -- bash -c 'cat Report/alertas_guard.txt; tail -f Report/alertas_guard.txt' &");
+    system("gnome-terminal -- bash -c 'tail -n +1 -f Report/alertas_guard.txt' &");
     //system("gnome-terminal -- tail -f Report/alertas_guard.txt &");
     //system("xterm -hold -e tail -f Report/alertas_guard.txt &");
     //system("konsole -e tail -f Report/alertas_guard.txt &");
@@ -468,7 +469,6 @@ int main() {
     printf("🔔 Terminal de alertas abierta. Monitoreando eventos...\n");
 
     sleep(3); // Esperar a que se abra la terminal de alertas
-    
 
     // Ciclo principal del menú
     while (1) {

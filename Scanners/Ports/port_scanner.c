@@ -235,7 +235,6 @@ int main(int argc, char *argv[])
                 char alert_message[512];
                 snprintf(alert_message, sizeof(alert_message), "🚨 ALERTA PUERTOS:  Puerto %d/tcp abierto por %s(proceso: %s) - posible backdoor o servicio sospechoso.", port, info ? info->service : "Desconocido", process);
                 Write_Alert(alert_message);
-                //system("cat Report/alertas_guard.txt"); //Muestra las alertas en tiempo real
             }
             else
             {
