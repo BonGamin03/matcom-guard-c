@@ -11,6 +11,8 @@ void inicializar_alertas_guard(void);
 
 void inicializar_mutex_alertas();
 
+void limpiar_usb_baseline(void);
+
 void destruir_mutex_alertas();
 
 void destruir_alertas_guard(void);

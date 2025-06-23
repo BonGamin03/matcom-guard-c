@@ -29,8 +29,60 @@ void destruir_alertas_guard(void) {
     }
 }
 
-//Tabla y mensage con Colores
+void limpiar_usb_baseline(void) {
+    if (remove("Scanners/USB/usb_baseline.db") == 0) {
+        printf("✅ Base de datos del USB eliminada correctamente.\n");
+    } else {
+        perror("❌ Error al eliminar la base de datos del USB");
+    }
+}
 
+//Tabla y mensage con Colores
+void Write_Alert(const char* type_scanner, const char * message) {
+    pthread_mutex_lock(&mutex_alertas);
+
+    // 1. Revisar si el mensaje ya existe en el archivo
+    int exists = 0;
+    FILE *alert = fopen(ALERT_FILE, "r");
+    if (alert) {
+        char linea[1024];
+        while (fgets(linea, sizeof(linea), alert)) {
+            if (strstr(linea, type_scanner) && strstr(linea, message)) {
+                exists = 1;
+                break;
+            }
+        }
+        fclose(alert);
+    }
+
+    // 2. Si no existe, escribir la alerta
+    if (!exists) {
+        alert = fopen(ALERT_FILE, "a");
+        if (alert) {
+            int fd = fileno(alert);
+            flock(fd, LOCK_EX);
+
+            time_t now = time(NULL);
+            struct tm *tm_info = localtime(&now);
+            char fecha[32];
+            strftime(fecha, sizeof(fecha), "%Y-%m-%d %H:%M:%S", tm_info);
+
+            // Delimitadores cyan, fecha verde, tipo magenta, detalle amarillo
+            fprintf(alert, "\033[1;36m║\033[0m \033[1;32m%-20s\033[0m \033[1;36m│\033[0m \033[1;35m%-12s\033[0m \033[1;36m│\033[0m \033[1;33m%-40s\033[0m \033[1;36m║\033[0m\n",
+                fecha, type_scanner, message);
+
+            fflush(alert);
+            flock(fd, LOCK_UN);
+            fclose(alert);
+        } else {
+            fprintf(stderr, "❌ Error al abrir el archivo alertas_guard.txt: %s\n", strerror(errno));
+        }
+    }
+
+    pthread_mutex_unlock(&mutex_alertas);
+}
+
+/*
 void Write_Alert(const char* type_scanner,const char * message) {
 
     pthread_mutex_lock(&mutex_alertas);
@@ -58,6 +110,7 @@ void Write_Alert(const char* type_scanner,const char * message) {
 
     pthread_mutex_unlock(&mutex_alertas);
 }
+*/
 
 void inicializar_alertas_guard() {
 
@@ -77,12 +130,12 @@ void inicializar_alertas_guard() {
     if (vacio) {
         f = fopen("Report/alertas_guard.txt", "w");
         if (f) {
-            // Códigos ANSI para color: 36 = cyan, 33 = amarillo, 32 = verde, 31 = rojo, 35 = magenta
+            // Códigos ANSI para color: 36 = cyan, 33 = amarillo, 32 = verde, 37 = blanco, 35 = magenta
             fprintf(f,
 "\033[1;36m╔══════════════════════════════════════════════════════════════════════════════╗\n"
-"║                 🛡️  \033[1;33mMATCOM GUARD - ALERTAS EN TIEMPO REAL\033[1;36m  🛡️               ║\n"
+"║                 🛡️  \033[1;37mMATCOM GUARD - ALERTAS EN TIEMPO REAL\033[1;36m  🛡️                  ║\n"
 "╠══════════════════════════════════════════════════════════════════════════════╣\n"
-"║  \033[1;32mFecha y hora        │ Tipo de alerta │ Detalle\033[1;36m                             ║\n"
+"║  \033[1;37mFecha y hora        │ Tipo de alerta │ Detalle\033[1;36m                              ║\n"
 "╠══════════════════════╬════════════════╬══════════════════════════════════════╣\033[0m\n"
             );
             fclose(f);

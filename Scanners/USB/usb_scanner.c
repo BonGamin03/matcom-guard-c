@@ -18,6 +18,7 @@
 #define HASH_SIZE 65
 #define BUFFER_SIZE 8192
 #define UMBRAL_CAMBIOS 10 // Porcentaje de archivos que pueden cambiar antes de alertar
+#define USB_DB_FILE "Scanners/USB/usb_baseline.db"
 
 // Estructura para almacenar información de archivos
 typedef struct {
@@ -44,10 +45,21 @@ static USBDevice usb_devices[10];
 static int device_count = 0;
 static volatile int running = 1;
 
+// Prototipos de funciones
+void signal_handler(int sig);
+int calculate_file_hash(const char *filepath, char *hash_output);
+int get_file_info(const char *filepath, FileInfo *info);
+int scan_directory(const char *dir_path, FileInfo *files, int *file_count, int max_files);
+int detect_usb_devices(void);
+void load_usb_baseline();
+void save_usb_baseline(void);
+
+
 // Función para manejar señales de terminación
 void signal_handler(int sig) {
     printf("\n[REINO] Deteniendo vigilancia por orden real...\n");
     running = 0;
+    save_usb_baseline(); // <-- Agrega esto aquí
 }
 
 // Función para calcular hash SHA-256 de un archivo (OpenSSL 3.0+)
@@ -388,7 +400,7 @@ void analyze_changes(USBDevice *device) {
         // Escribir alerta de infiltración
         char alert_message[512];
         snprintf(alert_message, sizeof(alert_message), 
-                 "🚨 ALERTA MÁXIMA: Posible infiltración detectada en %s. "
+                 "🚨 ALERTA MÁXIMA: Posible infiltración detectada en %.128s. "
                  "Porcentaje de cambios: %d%%, Cambios sospechosos: %d", 
                  device->mount_point, change_percentage, suspicious_changes);
         Write_Alert("USB", alert_message);
@@ -428,8 +440,55 @@ void monitor_usb_devices() {
         
         // Esperar antes del próximo ciclo de monitoreo
         //printf("💤 [REINO] Vigilancia en pausa... (próximo escaneo en 10 segundos)\n");
-        //sleep(30);
+      //  sleep(10);
     //}
+}
+
+void load_usb_baseline() {
+    FILE *f = fopen(USB_DB_FILE, "r");
+    if (!f) return;
+    device_count = 0;
+    char line[8192];
+    while (fgets(line, sizeof(line), f)) {
+        if (strncmp(line, "DEVICE|", 7) == 0) {
+            char mount_point[MAX_PATH], device[MAX_PATH];
+            int file_count = 0;
+            sscanf(line, "DEVICE|%[^|]|%[^|]|%d", mount_point, device, &file_count);
+            strncpy(usb_devices[device_count].mount_point, mount_point, MAX_PATH-1);
+            strncpy(usb_devices[device_count].device, device, MAX_PATH-1);
+            usb_devices[device_count].file_count = file_count;
+            usb_devices[device_count].is_monitored = 1;
+            int file_idx = 0;
+            // Leer los archivos asociados
+            while (file_idx < file_count && fgets(line, sizeof(line), f)) {
+                if (strncmp(line, "FILE|", 5) == 0) {
+                    FileInfo *fi = &usb_devices[device_count].files[file_idx];
+                    sscanf(line, "FILE|%[^|]|%[^|]|%ld|%ld|%o|%d|%d|%d",
+                        fi->path, fi->hash, &fi->size, &fi->mtime, &fi->permissions, &fi->owner, &fi->group, &fi->exists);
+                    file_idx++;
+                } else {
+                    break;
+                }
+            }
+            device_count++;
+        }
+    }
+    fclose(f);
+}
+
+void save_usb_baseline() {
+    FILE *f = fopen(USB_DB_FILE, "w");
+    if (!f) return;
+    for (int i = 0; i < device_count; i++) {
+        if (!usb_devices[i].is_monitored) continue;
+        fprintf(f, "DEVICE|%s|%s|%d\n", usb_devices[i].mount_point, usb_devices[i].device, usb_devices[i].file_count);
+        for (int j = 0; j < usb_devices[i].file_count; j++) {
+            FileInfo *fi = &usb_devices[i].files[j];
+            fprintf(f, "FILE|%s|%s|%ld|%ld|%o|%d|%d|%d\n",
+                fi->path, fi->hash, fi->size, fi->mtime, fi->permissions, fi->owner, fi->group, fi->exists);
+        }
+    }
+    fclose(f);
 }
 
 int main() {
@@ -445,10 +504,23 @@ int main() {
     printf("🛡️  Iniciando sistemas de seguridad...\n");
     printf("👁️  Configurando vigilancia de fronteras...\n");
     printf("📊 Umbral de alerta configurado en: %d%% de cambios\n\n", UMBRAL_CAMBIOS);
+
+    // Verificar si existe baseline
+    struct stat st;
+    int baseline_existe = (stat(USB_DB_FILE, &st) == 0 && st.st_size > 0);
+
+    if (baseline_existe) {
+        load_usb_baseline();
+        printf("📂 Baseline cargado desde base de datos.\n");
+    } else {
+        printf("📂 No se encontró baseline previo. Se creará uno nuevo con el estado actual.\n");
+    }
     
     // Iniciar monitoreo
     monitor_usb_devices();
-    
+    // Guardar baseline al finalizar
+    save_usb_baseline();
+
     printf("\n🏰 [REINO] Vigilancia finalizada. Que la paz reine en el reino.\n");
     return 0;
 }

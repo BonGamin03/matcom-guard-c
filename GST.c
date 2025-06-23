@@ -273,7 +273,6 @@ void scanPortsInteractive() {
     } else if (sscanf(port_range, "%d-%d", &start_port, &end_port) != 2 ||
                 start_port < 1 || end_port > 65535 || start_port > end_port) {
         printf("Rango de puertos inválido. Use: inicio-fin (ej: 1-1024)\n");
-        // Limpiar buffer solo si hay basura
         int c;
         while ((c = getchar()) != '\n' && c != EOF);
         return;
@@ -282,7 +281,9 @@ void scanPortsInteractive() {
     char cmd[256];
     snprintf(cmd, sizeof(cmd), "./Scanners/Ports/port_scanner %s %d %d", ip, start_port, end_port);
 
-    printf("\n\033[1;36m~~~~~~~~~~~~~~>>> Resultado del escaneo personalizado <<<~~~~~~~~~~~~~~\033[0m\n\n");
+    printf("\n\033[1;32m~~~~~~~~~~~~~~~~~~~~~~~~~~REPORTE PUERTOS (INTERACTIVO)~~~~~~~~~~~~~~~~~~~~~~~~~\033[0m\n");
+    //printf("\033[1;36mEscaneo de IP: %s, Puertos: %d-%d\033[0m\n\n", ip, start_port, end_port);
+
     FILE *scanner = popen(cmd, "r");
     if (scanner) {
         char buffer[512];
@@ -293,34 +294,36 @@ void scanPortsInteractive() {
     } else {
         printf("❌ Error al ejecutar el escáner de puertos.\n");
     }
-    printf("\n\033[1;33m------------------------------------------------------------------------\033[0m\n");
+    printf("\033[1;33m--------------------------------------------------------------------------------\033[0m\n");
 }
 
 // Funciones para imprimir los reportes en consola
+
 void print_fs_report() {
     pthread_mutex_lock(&report_mutex);
-    printf("\n\033[1;32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ REPORTE USB ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\033[0m\n");
+    printf("\n\033[1;32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ REPORTE USB ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\033[0m\n");
     printf("\n%s\n", fs_report);
     pthread_mutex_unlock(&report_mutex);
-    printf("\033[1;33m------------------------------------------------------------------------\033[0m\n");
+    printf("\033[1;33m--------------------------------------------------------------------------------\033[0m\n");
 }
 
 void print_mem_report() {
     pthread_mutex_lock(&report_mutex);
-    printf("\n\033[1;32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ REPORTE MEMORIA ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\033[0m\n");
+    printf("\n\033[1;32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ REPORTE MEMORIA ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\033[0m\n");
     printf("\n%s\n", mem_report);
     pthread_mutex_unlock(&report_mutex);
-    printf("\033[1;33m------------------------------------------------------------------------\033[0m\n\n");
+printf("\033[1;33m--------------------------------------------------------------------------------\033[0m\n");
 }
 
 void print_port_report() {
     pthread_mutex_lock(&report_mutex);
-    printf("\n\033[1;32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ REPORTE PUERTOS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\033[0m\n");
+    printf("\n\033[1;32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ REPORTE PUERTOS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\033[0m\n");
     printf("\n%s\n", port_report);
     pthread_mutex_unlock(&report_mutex);
-    printf("\033[1;33m------------------------------------------------------------------------\033[0m\n");
+    printf("\033[1;33m--------------------------------------------------------------------------------\033[0m\n");
 }
 
+// Función para generar un reporte unificado
 void GenerateUnifiedReport() {
     // Verificar que los archivos de reporte existan
     const char *files[] = {
@@ -387,6 +390,7 @@ void GenerateUnifiedReport() {
     printf("📊 Puedes abrirlo con cualquier editor de texto\n");
 }
 
+// Función para abrir el reporte unificado en un editor de texto
 void abrir_reporte_txt(const char *nombre_archivo) {
     char ruta_archivo[256];
     snprintf(ruta_archivo, sizeof(ruta_archivo), "Report/%s", nombre_archivo);
@@ -395,9 +399,14 @@ void abrir_reporte_txt(const char *nombre_archivo) {
         printf("❌ El archivo no existe. Genérelo primero.\n");
         return;
     }
-
-    // Intentar abrir con diferentes editores disponibles
-    if (system("which gedit >/dev/null 2>&1") == 0) {
+    // Intentar abrir con el visor de texto predeterminado del sistema
+    if (system("which xdg-open >/dev/null 2>&1") == 0) {
+        char comando[512];
+        snprintf(comando, sizeof(comando), "xdg-open \"%s\" &", ruta_archivo);
+        system(comando);
+        printf("📝 Abriendo archivo con el visor de texto predeterminado...\n");
+        return;
+    }else if (system("which gedit >/dev/null 2>&1") == 0) {
         char comando[512];
         snprintf(comando, sizeof(comando), "gedit \"%s\" &", ruta_archivo);
         system(comando);
@@ -541,6 +550,7 @@ int main() {
                 
                 pthread_mutex_destroy(&report_mutex);
                 destruir_alertas_guard();
+                limpiar_usb_baseline();
                 destruir_mutex_alertas();
                 
                 printf("✅ Hilos cerrados correctamente.\n");
