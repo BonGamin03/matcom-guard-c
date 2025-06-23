@@ -11,9 +11,10 @@
 #include <sys/inotify.h>
 #include <errno.h>
 #include <signal.h>
+#include "../../Scanners/util.h"
 
 #define MAX_PATH 4096
-#define MAX_FILES 10000
+#define MAX_FILES 100
 #define HASH_SIZE 65
 #define BUFFER_SIZE 8192
 #define UMBRAL_CAMBIOS 10 // Porcentaje de archivos que pueden cambiar antes de alertar
@@ -190,7 +191,16 @@ int detect_usb_devices() {
                 printf("📍 Punto de entrada: %s\n", mount->mnt_dir);
                 printf("🛡️  Dispositivo: %s\n", mount->mnt_fsname);
                 printf("⚔️  Iniciando escaneo de seguridad...\n\n");
-                
+
+                //Escribir alerta de nuevo dispositivo
+                char alert_message[512];
+                snprintf(alert_message, sizeof(alert_message), 
+                         "🚨 ALERTA NUEVO DISPOSITIVO: %s montado en %s", 
+                         mount->mnt_fsname, mount->mnt_dir);
+                Write_Alert("USB", alert_message);
+                sleep(3); // Pausa para evitar spam de alertas                         
+
+                // Agregar nuevo dispositivo USB
                 strncpy(usb_devices[device_count].mount_point, mount->mnt_dir, MAX_PATH - 1);
                 strncpy(usb_devices[device_count].device, mount->mnt_fsname, MAX_PATH - 1);
                 usb_devices[device_count].file_count = 0;
@@ -247,6 +257,15 @@ void analyze_changes(USBDevice *device) {
                         printf("   📊 Tamaño: %ld → %ld bytes\n", 
                                device->files[j].size, current_files[i].size);
                         suspicious_changes++;
+
+                        //Escribir alerta
+                        char alert_message[512];
+                        snprintf(alert_message, sizeof(alert_message), 
+                                 "⚠️ ALERTA TRAICIÓN: Crecimiento inusual en %s: %ld → %ld bytes", 
+                                 current_files[i].path, device->files[j].size, current_files[i].size);
+                        Write_Alert("USB", alert_message);
+                        sleep(3); // Pausa para evitar spam de alertas
+
                     }
                     
                     // Cambio de permisos
@@ -262,6 +281,16 @@ void analyze_changes(USBDevice *device) {
                             device->files[j].permissions & permission_mask, 
                             current_files[i].permissions & permission_mask);
                         suspicious_changes++;
+                        
+                        //Escribir alerta
+                        char alert_message[512];
+                        snprintf(alert_message, sizeof(alert_message), 
+                                 "⚠️ ALERTA TRAICIÓN: Permisos modificados en %s: %o → %o", 
+                                 current_files[i].path, 
+                                 device->files[j].permissions & permission_mask, 
+                                 current_files[i].permissions & permission_mask);
+                        Write_Alert("USB", alert_message);
+                        sleep(3); // Pausa para evitar spam de alertas
                     }
                     // Cambio de propietario
                     if (current_files[i].owner != device->files[j].owner) {
@@ -270,6 +299,16 @@ void analyze_changes(USBDevice *device) {
                         printf("   👤 UID: %d → %d\n", 
                                device->files[j].owner, current_files[i].owner);
                         suspicious_changes++;
+
+                        //Escribir alerta
+                        char alert_message[512];
+                        snprintf(alert_message, sizeof(alert_message), 
+                                 "⚠️ ALERTA TRAICIÓN: Propietario cambiado en %s: %d → %d", 
+                                 current_files[i].path, 
+                                 device->files[j].owner, 
+                                 current_files[i].owner);
+                        Write_Alert("USB", alert_message);
+                        sleep(3); // Pausa para evitar spam de alertas
                     }
                 }
                 break;
@@ -289,6 +328,14 @@ void analyze_changes(USBDevice *device) {
                        strcmp(ext, ".bat") == 0 || strcmp(ext, ".com") == 0)) {
                 printf("🚨 [ALERTA] ¡Archivo ejecutable sospechoso!\n");
                 suspicious_changes++;
+
+                //Escribir alerta
+                char alert_message[512];
+                snprintf(alert_message, sizeof(alert_message), 
+                         "🚨 ALERTA: Archivo ejecutable sospechoso detectado: %s", 
+                         current_files[i].path);
+                Write_Alert("USB", alert_message);
+                sleep(3); // Pausa para evitar spam de alertas
             }
         }
     }
@@ -309,6 +356,14 @@ void analyze_changes(USBDevice *device) {
             printf("❌ [REINO] Archivo eliminado detectado:\n");
             printf("   📁 %s\n", device->files[i].path);
             printf("   📊 Tamaño original: %ld bytes\n", device->files[i].size);
+
+            //Escribir alerta
+            char alert_message[512];
+            snprintf(alert_message, sizeof(alert_message), 
+                     "❌ ALERTA: Archivo eliminado detectado: %s (Tamaño original: %ld bytes)", 
+                     device->files[i].path, device->files[i].size);
+            Write_Alert("USB", alert_message);
+            sleep(3); // Pausa para evitar spam de alertas
         }
     }
     
@@ -329,6 +384,15 @@ void analyze_changes(USBDevice *device) {
         printf("¡POSIBLE INFILTRACIÓN O PLAGA DETECTADA!\n");
         printf("Se recomienda investigación inmediata del dispositivo.\n");
         printf("🛡️  Consideraciones de seguridad activadas.\n\n");
+
+        // Escribir alerta de infiltración
+        char alert_message[512];
+        snprintf(alert_message, sizeof(alert_message), 
+                 "🚨 ALERTA MÁXIMA: Posible infiltración detectada en %s. "
+                 "Porcentaje de cambios: %d%%, Cambios sospechosos: %d", 
+                 device->mount_point, change_percentage, suspicious_changes);
+        Write_Alert("USB", alert_message);
+        sleep(3); // Pausa para evitar spam de alertas
     }
     
     // Actualizar baseline
@@ -364,7 +428,7 @@ void monitor_usb_devices() {
         
         // Esperar antes del próximo ciclo de monitoreo
         printf("💤 [REINO] Vigilancia en pausa... (próximo escaneo en 10 segundos)\n");
-        sleep(10);
+        sleep(30);
     }
 }
 

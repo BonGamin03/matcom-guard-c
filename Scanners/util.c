@@ -31,7 +31,7 @@ void destruir_alertas_guard(void) {
 
 //Tabla y mensage con Colores
 
-void Write_Alert(const char * message) {
+void Write_Alert(const char* type_scanner,const char * message) {
 
     pthread_mutex_lock(&mutex_alertas);
 
@@ -46,7 +46,7 @@ void Write_Alert(const char * message) {
         char fecha[32];
         strftime(fecha, sizeof(fecha), "%Y-%m-%d %H:%M:%S", tm_info);
         // Color verde para la fila de alerta
-        fprintf(alert, "\033[0;32m║ %-20s │ %-12s │ %-40s ║\033[0m\n", fecha, "ALERTA", message);
+        fprintf(alert, "\033[0;32m║ %-20s │ %-12s │ %-40s ║\033[0m\n", fecha, type_scanner, message);
         fflush(alert);  // Forzar escritura inmediata
         flock(fd, LOCK_UN);  // Desbloquear el archivo
         fclose(alert);

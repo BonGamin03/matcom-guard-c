@@ -234,9 +234,13 @@ int main(int argc, char *argv[])
 
                 // Escribir alerta en el archivo
                 char alert_message[512];
-                snprintf(alert_message, sizeof(alert_message), "🚨 ALERTA PUERTOS:  Puerto %d/tcp abierto por %s(proceso: %s) - posible backdoor o servicio sospechoso.", port, info ? info->service : "Desconocido", process);
-                Write_Alert(alert_message);
-                sleep(5); //Pausa para evitar spam de alertas
+                snprintf(alert_message, sizeof(alert_message), 
+                         "🚨 ALERTA PUERTO: Puerto %d/tcp abierto (%s) - Proceso: %s - %s%s",
+                         port, info ? info->service : "Desconocido", process,
+                         suspicious ? "posible backdoor o servicio sospechoso" : "",
+                         !process_match ? "proceso inesperado para este puerto" : "");
+                Write_Alert("PUERTOS", alert_message);
+                sleep(3); // Pausa para evitar spam de alertas
             }
             else
             {

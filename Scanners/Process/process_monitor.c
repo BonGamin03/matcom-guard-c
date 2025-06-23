@@ -316,10 +316,10 @@ void check_alert(){
             //Escribe la alerta en el archivo
             char alert_message[1024];
             snprintf(alert_message, sizeof(alert_message), 
-                "🚨 ALERTA PROCESOS: Proceso '%s' (PID: %d) - %s", 
+                "🚨 ALERTA: Proceso '%s' (PID: %d) - %s", 
                 processes[i].name, processes[i].pid, text);
-            Write_Alert(alert_message);
-            sleep(5); //Pausa para evitar spam de alertas
+            Write_Alert("PROCESOS", alert_message);
+            sleep(3); //Pausa para evitar spam de alertas
         }
     }
 
