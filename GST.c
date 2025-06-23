@@ -1,7 +1,11 @@
 
 //Comando para compilarlo correctamente:
 //gcc GST.c Scanners/util.c -o GST -lpthread   //normal
-//gcc Scanners/util.c GST.c -o GST    // para debug
+// Comando para compilarlo con debug:
+//gcc GST.c Scanners/util.c -o GST -lpthread -g  // para debug
+//gdb ./GST
+//run
+//bt //para mostrar errores
 
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -77,6 +81,7 @@ void *scanFilesystem(void *arg) {
     const char *executable = "./Scanners/USB/usb_scanner";
     
     while (keep_running) {
+        
         char buffer[4096];
         char temp[MAX_REPORT] = "";
         
@@ -88,12 +93,12 @@ void *scanFilesystem(void *arg) {
             snprintf(temp, sizeof(temp), "❌ Error: No se pudo compilar o ejecutar el escáner USB\n");
         } else {
             // Ejecutar el escáner
-            FILE *fp = popen(executable, "r");
-            if (fp) {
-                while (fgets(buffer, sizeof(buffer), fp) && strlen(temp) < MAX_REPORT - 100) {
+            FILE *scanner = popen(executable, "r");
+            if (scanner) {
+                while (fgets(buffer, sizeof(buffer), scanner) && strlen(temp) < MAX_REPORT - 100) {
                     strncat(temp, buffer, sizeof(temp) - strlen(temp) - 1);
                 }
-                pclose(fp);
+                pclose(scanner);
             } else {
                 snprintf(temp, sizeof(temp), "❌ Error: No se pudo ejecutar el escáner USB\n");
             }
@@ -139,12 +144,12 @@ void *scanMemory(void *arg) {
             snprintf(temp, sizeof(temp), "❌ Error: No se pudo compilar o ejecutar el monitor de procesos\n");
         } else {
             // Ejecutar el monitor
-            FILE *fp = popen(executable, "r");
-            if (fp) {
-                while (fgets(buffer, sizeof(buffer), fp) && strlen(temp) < MAX_REPORT - 100) {
+            FILE *scanner = popen(executable, "r");
+            if (scanner) {
+                while (fgets(buffer, sizeof(buffer), scanner) && strlen(temp) < MAX_REPORT - 100) {
                     strncat(temp, buffer, sizeof(temp) - strlen(temp) - 1);
                 }
-                pclose(fp);
+                pclose(scanner);
             } else {
                 snprintf(temp, sizeof(temp), "❌ Error: No se pudo ejecutar el monitor de procesos\n");
             }
@@ -152,12 +157,12 @@ void *scanMemory(void *arg) {
         
         // Si no hay contenido, usar comando alternativo
         if (strlen(temp) == 0) {
-            FILE *fp = popen("free -h && echo '---' && ps aux --sort=-%mem | head -10", "r");
-            if (fp) {
-                while (fgets(buffer, sizeof(buffer), fp) && strlen(temp) < MAX_REPORT - 100) {
+            FILE *scanner = popen("free -h && echo '---' && ps aux --sort=-%mem | head -10", "r");
+            if (scanner) {
+                while (fgets(buffer, sizeof(buffer), scanner) && strlen(temp) < MAX_REPORT - 100) {
                     strncat(temp, buffer, sizeof(temp) - strlen(temp) - 1);
                 }
-                pclose(fp);
+                pclose(scanner);
             } else {
                 snprintf(temp, sizeof(temp), "💾 Monitor de memoria: Sin datos disponibles\n");
             }
@@ -201,12 +206,12 @@ void *scanPorts(void *arg) {
         } else {
             // Ejecutar el escáner
             snprintf(cmd, sizeof(cmd), "%s %s %d %d", executable, ip, start_port, end_port);
-            FILE *fp = popen(cmd, "r");
-            if (fp) {
-                while (fgets(buffer, sizeof(buffer), fp) && strlen(temp) < MAX_REPORT - 100) {
+            FILE *scanner = popen(cmd, "r");
+            if (scanner) {
+                while (fgets(buffer, sizeof(buffer), scanner) && strlen(temp) < MAX_REPORT - 100) {
                     strncat(temp, buffer, sizeof(temp) - strlen(temp) - 1);
                 }
-                pclose(fp);
+                pclose(scanner);
             } else {
                 snprintf(temp, sizeof(temp), "❌ Error: No se pudo ejecutar el escáner de puertos\n");
             }
@@ -214,12 +219,12 @@ void *scanPorts(void *arg) {
         
         // Si no hay contenido, usar netstat como alternativa
         if (strlen(temp) == 0) {
-            FILE *fp = popen("netstat -tuln 2>/dev/null | head -20", "r");
-            if (fp) {
-                while (fgets(buffer, sizeof(buffer), fp) && strlen(temp) < MAX_REPORT - 100) {
+            FILE *scanner = popen("netstat -tuln 2>/dev/null | head -20", "r");
+            if (scanner) {
+                while (fgets(buffer, sizeof(buffer), scanner) && strlen(temp) < MAX_REPORT - 100) {
                     strncat(temp, buffer, sizeof(temp) - strlen(temp) - 1);
                 }
-                pclose(fp);
+                pclose(scanner);
             } else {
                 snprintf(temp, sizeof(temp), "🔌 Escáner de puertos: Sin datos disponibles\n");
             }
@@ -274,21 +279,17 @@ void scanPortsInteractive() {
         return;
     }
 
-    // Limpiar buffer solo si hay basura
-    int c;
-    while ((c = getchar()) != '\n' && c != EOF);
-
     char cmd[256];
     snprintf(cmd, sizeof(cmd), "./Scanners/Ports/port_scanner %s %d %d", ip, start_port, end_port);
 
     printf("\n\033[1;36m~~~~~~~~~~~~~~>>> Resultado del escaneo personalizado <<<~~~~~~~~~~~~~~\033[0m\n\n");
-    FILE *fp = popen(cmd, "r");
-    if (fp) {
+    FILE *scanner = popen(cmd, "r");
+    if (scanner) {
         char buffer[512];
-        while (fgets(buffer, sizeof(buffer), fp)) {
+        while (fgets(buffer, sizeof(buffer), scanner)) {
             fputs(buffer, stdout);
         }
-        pclose(fp);
+        pclose(scanner);
     } else {
         printf("❌ Error al ejecutar el escáner de puertos.\n");
     }
@@ -425,7 +426,7 @@ void abrir_reporte_txt(const char *nombre_archivo) {
 }
 
 int main() {
-    int option;
+    int option ;
     pthread_t fs_tid, mem_tid, port_tid;
 
     printf("🛡️  Bienvenido al Gran Salón del Trono de Matcom Guard\n");
@@ -438,6 +439,7 @@ int main() {
     system("mkdir -p Report Scanners/USB Scanners/Process Scanners/Ports");
 
     inicializar_alertas_guard();
+    inicializar_mutex_alertas();
     printf("✅ Sistema de alertas inicializado\n");
     
     printf("⚡ Lanzando escáneres en segundo plano...\n");
@@ -470,7 +472,7 @@ int main() {
     // Ciclo principal del menú
     while (1) {
 
-        system("clear");
+        //system("clear");
         
         // Mostrar menú de usuario
         printf("\033[1;33m========================================\033[0m\n");
@@ -485,6 +487,7 @@ int main() {
         printf("\n");
         printf("\033[1;33m========================================\033[0m\n");
         printf("\033[1;35mSelecciona una opción:\033[0m ");
+
         
         if (scanf("%d", &option) != 1) {
             printf("❌ Entrada inválida. Inténtalo nuevamente.\n");
@@ -493,6 +496,16 @@ int main() {
             continue;
         }
         getchar(); // Limpiar salto de línea pendiente
+        
+        /*
+        char input[32];
+        if (!fgets(input, sizeof(input), stdin)) {
+            printf("❌ Entrada inválida. Inténtalo nuevamente.\n");
+            sleep(2);
+            continue;
+        }
+        option = atoi(input);
+        */
 
         switch (option) {
             case 1:
@@ -527,6 +540,10 @@ int main() {
                 pthread_timedjoin_np(port_tid, NULL, &timeout);
                 
                 pthread_mutex_destroy(&report_mutex);
+                destruir_alertas_guard();
+                destruir_mutex_alertas();
+                
+                printf("✅ Hilos cerrados correctamente.\n");
                 printf("👋 Saliendo del programa...\n");
                 return 0;
             default:

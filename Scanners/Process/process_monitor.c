@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include "process_monitor.h"
 #include "../../Scanners/util.h"
+#include <pthread.h>
 
 //Constantes para limites del sistema
 static float umbral_RAM = 50.0;
@@ -318,6 +319,7 @@ void check_alert(){
                 "🚨 ALERTA PROCESOS: Proceso '%s' (PID: %d) - %s", 
                 processes[i].name, processes[i].pid, text);
             Write_Alert(alert_message);
+            sleep(5); //Pausa para evitar spam de alertas
         }
     }
 
