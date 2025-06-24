@@ -406,7 +406,7 @@ void monitor_usb_devices() {
     printf("🏰 [REINO] Iniciando vigilancia de fronteras USB...\n");
     printf("⚔️  Presiona Ctrl+C para detener la vigilancia\n\n");
     
-    while (running) {
+    //while (running) {
         // Detectar nuevos dispositivos
         detect_usb_devices();
         
@@ -427,9 +427,9 @@ void monitor_usb_devices() {
         }
         
         // Esperar antes del próximo ciclo de monitoreo
-        printf("💤 [REINO] Vigilancia en pausa... (próximo escaneo en 10 segundos)\n");
-        sleep(30);
-    }
+        //printf("💤 [REINO] Vigilancia en pausa... (próximo escaneo en 10 segundos)\n");
+        //sleep(30);
+    //}
 }
 
 int main() {
