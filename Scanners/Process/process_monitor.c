@@ -26,7 +26,7 @@ void load_config(){
     char key[128] , value[128];
 
     //Intentar abrir el archivo de configuracion
-    config_file = fopen("../etc/matcomguard.conf","r");
+    config_file = fopen("Scanners/Process/matcomguard.conf", "r");
     if(config_file == NULL){
         printf(" [INFO] No se pudo abrir el archivo de configuracion , se usaran los valores por defecto");
         return;
@@ -75,6 +75,7 @@ static const char* white_list[] = {
 
 void print_module(void) {
     // Imprime un banner decorativo usando caracteres Unicode
+    printf("\n");
     printf("╔═══════════════════════════════════════════════════════════════╗\n");
     printf("║                    MATCOM GUARD - MÓDULO 2                    ║\n");
     printf("║                GUARDIAS DEL TESORO REAL                       ║\n");

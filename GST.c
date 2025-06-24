@@ -472,7 +472,7 @@ int main() {
     // Ciclo principal del menú
     while (1) {
 
-        //system("clear");
+        system("clear");
         
         // Mostrar menú de usuario
         printf("\033[1;33m========================================\033[0m\n");
